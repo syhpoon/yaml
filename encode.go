@@ -301,36 +301,45 @@ func (e *encoder) stringv(tag string, in reflect.Value) {
 	var style yaml_scalar_style_t
 	s := in.String()
 	canUsePlain := true
-	switch {
-	case !utf8.ValidString(s):
-		if tag == yaml_BINARY_TAG {
-			failf("explicitly tagged !!binary data must be base64-encoded")
-		}
-		if tag != "" {
-			failf("cannot marshal invalid UTF-8 data as %s", shortTag(tag))
-		}
-		// It can't be encoded directly as YAML so use a binary tag
-		// and encode it as base64.
-		tag = yaml_BINARY_TAG
-		s = encodeBase64(s)
-	case tag == "":
-		// Check to see if it would resolve to a specific
-		// tag when encoded unquoted. If it doesn't,
-		// there's no need to quote it.
-		rtag, _ := resolve("", s)
-		canUsePlain = rtag == yaml_STR_TAG && !isBase60Float(s)
-	}
-	// Note: it's possible for user code to emit invalid YAML
-	// if they explicitly specify a tag and a string containing
-	// text that's incompatible with that tag.
-	switch {
-	case strings.Contains(s, "\n"):
-		style = yaml_LITERAL_SCALAR_STYLE
-	case canUsePlain:
-		style = yaml_PLAIN_SCALAR_STYLE
-	default:
+
+	// A hack to force quoted string
+	strTag := "!!str"
+	if strings.HasPrefix(s, strTag) {
+		s = strings.TrimLeft(strings.TrimPrefix(s, strTag), " ")
 		style = yaml_DOUBLE_QUOTED_SCALAR_STYLE
+	} else {
+		switch {
+		case !utf8.ValidString(s):
+			if tag == yaml_BINARY_TAG {
+				failf("explicitly tagged !!binary data must be base64-encoded")
+			}
+			if tag != "" {
+				failf("cannot marshal invalid UTF-8 data as %s", shortTag(tag))
+			}
+			// It can't be encoded directly as YAML so use a binary tag
+			// and encode it as base64.
+			tag = yaml_BINARY_TAG
+			s = encodeBase64(s)
+		case tag == "":
+			// Check to see if it would resolve to a specific
+			// tag when encoded unquoted. If it doesn't,
+			// there's no need to quote it.
+			rtag, _ := resolve("", s)
+			canUsePlain = rtag == yaml_STR_TAG && !isBase60Float(s)
+		}
+		// Note: it's possible for user code to emit invalid YAML
+		// if they explicitly specify a tag and a string containing
+		// text that's incompatible with that tag.
+		switch {
+		case strings.Contains(s, "\n"):
+			style = yaml_LITERAL_SCALAR_STYLE
+		case canUsePlain:
+			style = yaml_PLAIN_SCALAR_STYLE
+		default:
+			style = yaml_DOUBLE_QUOTED_SCALAR_STYLE
+		}
 	}
+
 	e.emitScalar(s, "", tag, style)
 }
 
