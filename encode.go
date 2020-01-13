@@ -321,6 +321,13 @@ func (e *encoder) stringv(tag string, in reflect.Value) {
 		rtag, _ := resolve("", s)
 		canUsePlain = rtag == strTag && !isBase60Float(s)
 	}
+
+	// A hack to force quoted string
+	if strings.HasPrefix(s, strTag) {
+		s = strings.TrimLeft(strings.TrimPrefix(s, strTag), " ")
+		canUsePlain = false
+	}
+
 	// Note: it's possible for user code to emit invalid YAML
 	// if they explicitly specify a tag and a string containing
 	// text that's incompatible with that tag.
